@@ -9,8 +9,11 @@
 
 import type {GlobalConfig, ProjectConfig, Path} from 'types/Config';
 
-import {createInstrumenter} from 'istanbul-lib-instrument';
+import {readInitialCoverage} from 'istanbul-lib-instrument';
+import {classes} from 'istanbul-lib-coverage';
 import Runtime from 'jest-runtime';
+
+const FileCoverage = classes.FileCoverage;
 
 export type CoverageWorkerResult = {|
   coverage: any,
@@ -29,16 +32,13 @@ export default function(
     collectCoverageOnlyFrom: globalConfig.collectCoverageOnlyFrom,
   };
   if (Runtime.shouldInstrument(filename, coverageOptions, config)) {
-    // Transform file without instrumentation first, to make sure produced
-    // source code is ES6 (no flowtypes etc.) and can be instrumented
     const transformResult = new Runtime.ScriptTransformer(
       config,
-    ).transformSource(filename, source, false);
-    const instrumenter = createInstrumenter();
-    instrumenter.instrumentSync(transformResult.code, filename);
+    ).transformSource(filename, source, true);
+    const extracted = readInitialCoverage(transformResult.code);
+
     return {
-      coverage: instrumenter.fileCoverage,
-      sourceMapPath: transformResult.sourceMapPath,
+      coverage: new FileCoverage(extracted.coverageData),
     };
   } else {
     return null;
